@@ -6,7 +6,7 @@ st.set_page_config(page_title="Drug Search", page_icon="💊")
 st.title("💊 เว็บค้นหาข้อมูลยา")
 
 # อ่านไฟล์ Excel
-df = pd.read_excel("drug.xlsx")
+df = pd.read_excel("DRUG DISEASE.xlsx")
 
 search = st.text_input("พิมพ์ชื่อยาเพื่อค้นหา")
 
