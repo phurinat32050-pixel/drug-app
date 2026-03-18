@@ -27,7 +27,7 @@ disease_col = df.columns[1]
 mode = st.radio(
     "🔍 เลือกโหมดการค้นหา",
     ["ยา → รหัสโรค", "รหัสโรค → ยา"]
-)horizontal =True # ปุ่มเรียงเป็นแนวนอน
+)horizontal=True  # ปุ่มเรียงเป็นแนวนอน
 
 st.divider()
 
