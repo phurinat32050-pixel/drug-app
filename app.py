@@ -1,31 +1,92 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Drug & Disease Search", page_icon="💊")
+st.set_page_config(page_title="Drug & Disease System", page_icon="💊", layout="wide")
 
-st.title("💊 เว็บค้นหาข้อมูลยาและโรค")
+st.title("💊 ระบบค้นหายาและรหัสโรค")
 
-# อ่านไฟล์ Excel
-df = pd.read_excel("DRUG DISEASE.xlsx")
+# =========================
+# โหลดข้อมูล
+# =========================
+try:
+    df = pd.read_excel("DRUG DISEASE.xlsx")
+    df = df.dropna(how="all")
+except:
+    st.error("❌ โหลดไฟล์ DRUG DISEASE.xlsx ไม่ได้")
+    st.stop()
 
-# ลบแถวว่างทั้งหมด
-df = df.dropna(how="all")
+# =========================
+# ตั้งคอลัมน์ (ใช้คอลัมน์แรก 2 ตัว)
+# =========================
+drug_col = df.columns[0]
+disease_col = df.columns[1]
 
-# ใช้คอลัมน์แรกเป็นตัวเลือก
-column_name = df.columns[0]
-
-# สร้างตัวเลือกแบบไม่ซ้ำ และเรียง A-Z
-options = sorted(df[column_name].astype(str).unique())
-
-# เลือกได้หลายรายการ
-selected_items = st.multiselect(
-    "เลือกชื่อยา / โรค (เลือกได้หลายรายการ)",
-    options
+# =========================
+# เลือกโหมด
+# =========================
+mode = st.selectbox(
+    "🔍 เลือกโหมดการค้นหา",
+    ["ยา → รหัสโรค", "รหัสโรค → ยา"]
 )
 
-# แสดงผลเมื่อมีการเลือก
-if selected_items:
-    result = df[df[column_name].isin(selected_items)]
-    
-    st.subheader("📋 ผลการค้นหา")
-    st.dataframe(result, use_container_width=True)
+st.divider()
+
+# =========================
+# 🟢 โหมด 1: ยา → โรค
+# =========================
+if mode == "ยา → รหัสโรค":
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        drugs = sorted(df[drug_col].astype(str).unique())
+        selected_drugs = st.multiselect("💊 เลือกยา", drugs)
+
+    with col2:
+        keyword = st.text_input("🔎 ค้นหาเพิ่มเติม")
+
+    result = df.copy()
+
+    if selected_drugs:
+        result = result[result[drug_col].isin(selected_drugs)]
+
+    if keyword:
+        result = result[result.astype(str).apply(
+            lambda row: row.str.contains(keyword, case=False).any(), axis=1
+        )]
+
+    if not result.empty:
+        st.success("✅ พบข้อมูล")
+        st.dataframe(result, use_container_width=True)
+    else:
+        st.warning("ไม่พบข้อมูล")
+
+# =========================
+# 🔵 โหมด 2: โรค → ยา
+# =========================
+else:
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        diseases = sorted(df[disease_col].astype(str).unique())
+        selected_diseases = st.multiselect("🦠 เลือกรหัสโรค", diseases)
+
+    with col2:
+        keyword = st.text_input("🔎 ค้นหาเพิ่มเติม")
+
+    result = df.copy()
+
+    if selected_diseases:
+        result = result[result[disease_col].isin(selected_diseases)]
+
+    if keyword:
+        result = result[result.astype(str).apply(
+            lambda row: row.str.contains(keyword, case=False).any(), axis=1
+        )]
+
+    if not result.empty:
+        st.success("✅ พบข้อมูล")
+        st.dataframe(result, use_container_width=True)
+    else:
+        st.warning("ไม่พบข้อมูล")
