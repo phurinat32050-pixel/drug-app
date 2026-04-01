@@ -1,4 +1,4 @@
-import streamlit as st
+ import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Drug & Disease System", page_icon="💊", layout="wide")
@@ -10,96 +10,77 @@ st.title("💊 ระบบค้นหายาและรหัสโรค")
 try:
     df = pd.read_excel("DRUG DISEASE.xlsx")
     df = df.dropna(how="all")
-
-    # 🔥 ล้างชื่อคอลัมน์ (กันช่องว่างแอบ)
     df.columns = df.columns.str.strip()
-
 except:
-    st.error("❌ โหลดไฟล์ DRUG DISEASE.xlsx ไม่ได้")
+    st.error("❌ โหลดไฟล์ไม่ได้")
     st.stop()
 
 # =========================
-# 🔥 หา column อัตโนมัติ (แก้ปัญหา 'คำวินิจฉัย')
+# หา column อัตโนมัติ
 # =========================
 drug_col = None
 disease_col = None
+code_col = None
+category_col = None
 
 for col in df.columns:
     if "ยา" in col:
         drug_col = col
-    if "วินิจฉัย" in col or "โรค" in col:
+    elif "วินิจฉัย" in col:
         disease_col = col
+    elif "รหัส" in col:
+        code_col = col
+    elif "หมวด" in col:
+        category_col = col
 
-# 🔥 เช็คว่าหาเจอไหม
-if not drug_col or not disease_col:
-    st.error(f"❌ หา column ไม่เจอ\nมีแค่: {list(df.columns)}")
+if not drug_col or not disease_col or not code_col:
+    st.error(f"❌ คอลัมน์ไม่ครบ: {list(df.columns)}")
     st.stop()
 
 # =========================
-# เปลี่ยนโหมดเป็นปุ่ม Radio
+# เลือกโหมด
 # =========================
 mode = st.radio(
-    "🔍 เลือกโหมดการค้นหา",
-    ["ยา → รหัสโรค", "รหัสโรค → ยา"],
+    "🔍 เลือกโหมด",
+    ["ยา → รหัสโรค", "รหัสโรค → ยา", "หมวดยา → แนะนำโรค"],
     horizontal=True
 )
 
+st.divider()
+
 # =========================
-# 🟢 โหมด 1: ยา → โรค
+# 🟢 โหมด 1
 # =========================
 if mode == "ยา → รหัสโรค":
 
-    col1, col2 = st.columns(2)
+    selected = st.multiselect("💊 เลือกยา", sorted(df[drug_col].astype(str).unique()))
 
-    with col1:
-        drugs = sorted(df[drug_col].astype(str).unique())
-        selected_drugs = st.multiselect("💊 เลือกยา", drugs)
+    result = df[df[drug_col].isin(selected)] if selected else df
 
-    with col2:
-        keyword = st.text_input("🔎 ค้นหาเพิ่มเติม")
-
-    result = df.copy()
-
-    if selected_drugs:
-        result = result[result[drug_col].isin(selected_drugs)]
-
-    if keyword:
-        result = result[result.astype(str).apply(
-            lambda row: row.str.contains(keyword, case=False).any(), axis=1
-        )]
-
-    if not result.empty:
-        st.success("✅ พบข้อมูล")
-        st.dataframe(result, use_container_width=True)
-    else:
-        st.warning("ไม่พบข้อมูล")
+    st.dataframe(result[[drug_col, code_col]], use_container_width=True)
 
 # =========================
-# 🔵 โหมด 2: โรค → ยา
+# 🔵 โหมด 2
+# =========================
+elif mode == "รหัสโรค → ยา":
+
+    selected = st.multiselect("🦠 เลือกรหัสโรค", sorted(df[code_col].astype(str).unique()))
+
+    result = df[df[code_col].isin(selected)] if selected else df
+
+    st.dataframe(result[[drug_col, code_col]], use_container_width=True)
+
+# =========================
+# 🟣 โหมด 3: หมวด → แนะนำโรค
 # =========================
 else:
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        diseases = sorted(df[disease_col].astype(str).unique())
-        selected_diseases = st.multiselect("🦠 เลือกรหัสโรค", diseases)
-
-    with col2:
-        keyword = st.text_input("🔎 ค้นหาเพิ่มเติม")
-
-    result = df.copy()
-
-    if selected_diseases:
-        result = result[result[disease_col].isin(selected_diseases)]
-
-    if keyword:
-        result = result[result.astype(str).apply(
-            lambda row: row.str.contains(keyword, case=False).any(), axis=1
-        )]
-
-    if not result.empty:
-        st.success("✅ พบข้อมูล")
-        st.dataframe(result, use_container_width=True)
+    if not category_col:
+        st.warning("⚠️ ไม่มีคอลัมน์ 'หมวด'")
     else:
-        st.warning("ไม่พบข้อมูล")
+        selected = st.multiselect("📂 เลือกหมวดยา", sorted(df[category_col].astype(str).unique()))
+
+        result = df[df[category_col].isin(selected)] if selected else df
+
+        # 🔥 แสดงแค่ชื่อยา + รหัสโรค
+        st.dataframe(result[[drug_col, code_col]], use_container_width=True)
