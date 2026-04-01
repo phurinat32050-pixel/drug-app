@@ -21,7 +21,6 @@ except:
 drug_col = None
 disease_col = None
 code_col = None
-category_col = None
 
 for col in df.columns:
     if "ยา" in col:
@@ -30,19 +29,29 @@ for col in df.columns:
         disease_col = col
     elif "รหัส" in col:
         code_col = col
-    elif "หมวด" in col:
-        category_col = col
 
 if not drug_col or not disease_col or not code_col:
     st.error(f"❌ คอลัมน์ไม่ครบ: {list(df.columns)}")
     st.stop()
 
 # =========================
+# 🔥 ฟังก์ชัน AI (กึ่ง AI)
+# =========================
+def ai_suggest(drug_input):
+    drug_input = drug_input.lower()
+    result = df[df[drug_col].astype(str).str.lower().str.contains(drug_input)]
+
+    if not result.empty:
+        return result[[drug_col, disease_col, code_col]].drop_duplicates()
+    else:
+        return None
+
+# =========================
 # เลือกโหมด
 # =========================
 mode = st.radio(
     "🔍 เลือกโหมด",
-    ["ยา → รหัสโรค", "รหัสโรค → ยา", "หมวดยา → แนะนำโรค"],
+    ["ยา → รหัสโรค", "รหัสโรค → ยา", "🤖 AI แนะนำโรค"],
     horizontal=True
 )
 
@@ -54,7 +63,6 @@ st.divider()
 if mode == "ยา → รหัสโรค":
 
     selected = st.multiselect("💊 เลือกยา", sorted(df[drug_col].astype(str).unique()))
-
     result = df[df[drug_col].isin(selected)] if selected else df
 
     st.dataframe(result[[drug_col, code_col]], use_container_width=True)
@@ -65,22 +73,24 @@ if mode == "ยา → รหัสโรค":
 elif mode == "รหัสโรค → ยา":
 
     selected = st.multiselect("🦠 เลือกรหัสโรค", sorted(df[code_col].astype(str).unique()))
-
     result = df[df[code_col].isin(selected)] if selected else df
 
     st.dataframe(result[[drug_col, code_col]], use_container_width=True)
 
 # =========================
-# 🟣 โหมด 3: หมวด → แนะนำโรค
+# 🤖 โหมด 3: AI
 # =========================
 else:
 
-    if not category_col:
-        st.warning("⚠️ ไม่มีคอลัมน์ 'หมวด'")
-    else:
-        selected = st.multiselect("📂 เลือกหมวดยา", sorted(df[category_col].astype(str).unique()))
+    st.subheader("🤖 AI แนะนำโรคจากชื่อยา")
 
-        result = df[df[category_col].isin(selected)] if selected else df
+    user_input = st.text_input("💬 พิมพ์ชื่อยา เช่น Metformin")
 
-        # 🔥 แสดงแค่ชื่อยา + รหัสโรค
-        st.dataframe(result[[drug_col, code_col]], use_container_width=True)
+    if user_input:
+        ai_result = ai_suggest(user_input)
+
+        if ai_result is not None:
+            st.success("✅ AI แนะนำผลลัพธ์")
+            st.dataframe(ai_result, use_container_width=True)
+        else:
+            st.warning("❌ ไม่พบข้อมูล")
