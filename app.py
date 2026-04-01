@@ -10,15 +10,30 @@ st.title("💊 ระบบค้นหายาและรหัสโรค")
 try:
     df = pd.read_excel("DRUG DISEASE.xlsx")
     df = df.dropna(how="all")
+
+    # 🔥 ล้างชื่อคอลัมน์ (กันช่องว่างแอบ)
+    df.columns = df.columns.str.strip()
+
 except:
     st.error("❌ โหลดไฟล์ DRUG DISEASE.xlsx ไม่ได้")
     st.stop()
 
 # =========================
-# ตั้งคอลัมน์
+# 🔥 หา column อัตโนมัติ (แก้ปัญหา 'คำวินิจฉัย')
 # =========================
-drug_col = df.columns[0]
-disease_col = df.columns[1]
+drug_col = None
+disease_col = None
+
+for col in df.columns:
+    if "ยา" in col:
+        drug_col = col
+    if "วินิจฉัย" in col or "โรค" in col:
+        disease_col = col
+
+# 🔥 เช็คว่าหาเจอไหม
+if not drug_col or not disease_col:
+    st.error(f"❌ หา column ไม่เจอ\nมีแค่: {list(df.columns)}")
+    st.stop()
 
 # =========================
 # เปลี่ยนโหมดเป็นปุ่ม Radio
