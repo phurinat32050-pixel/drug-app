@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Drug & Disease System", page_icon="💊", layout="wide")
