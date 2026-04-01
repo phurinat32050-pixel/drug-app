@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Drug & Disease System", page_icon="💊", layout="wide")
-
 st.title("💊 ระบบค้นหายาและรหัสโรค")
 
 # =========================
@@ -16,20 +15,19 @@ except:
     st.stop()
 
 # =========================
-# ตั้งคอลัมน์ (ใช้คอลัมน์แรก 2 ตัว)
+# ตั้งคอลัมน์
 # =========================
 drug_col = df.columns[0]
 disease_col = df.columns[1]
 
 # =========================
-# เลือกโหมด
+# เปลี่ยนโหมดเป็นปุ่ม Radio
 # =========================
-mode = st.selectbox(
+mode = st.radio(
     "🔍 เลือกโหมดการค้นหา",
-    ["ยา → รหัสโรค", "รหัสโรค → ยา"]
+    ["ยา → รหัสโรค", "รหัสโรค → ยา"],
+    horizontal=True
 )
-
-st.divider()
 
 # =========================
 # 🟢 โหมด 1: ยา → โรค
