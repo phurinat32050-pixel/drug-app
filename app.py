@@ -171,4 +171,31 @@ if menu == "🔍 ค้นหา":
             st.markdown(f"[🌐 ค้นข้อมูลเพิ่มเติมจาก Google]({url})")
 
         if not result.empty:
-            st.markdown("### 📊 จำนวน
+            st.markdown("### 📊 จำนวนยา")
+            st.bar_chart(result[drug_col].value_counts().head(10))
+
+        st.dataframe(result[[drug_col, property_col, code_col]], use_container_width=True)
+
+# =========================
+# 📊 DASHBOARD
+# =========================
+else:
+
+    st.subheader("📊 Dashboard โรคเรื้อรัง")
+
+    # ใช้เฉพาะโรคเรื้อรัง
+    chronic_df = df[df[code_col].apply(check_icd_range)]
+
+    # สร้าง ICD group
+    chronic_df["ICD_group"] = chronic_df[code_col].astype(str).str.strip().str[:3]
+
+    chart_data = chronic_df.groupby("ICD_group")[drug_col].count().sort_values(ascending=False)
+
+    st.markdown("### 📈 จำนวนยาแยกตามรหัสโรค")
+    st.bar_chart(chart_data)
+
+    chart_df = chart_data.reset_index()
+    chart_df.columns = ["รหัสโรค", "จำนวนยา"]
+
+    st.markdown("### 📋 รายละเอียด")
+    st.dataframe(chart_df, use_container_width=True)
