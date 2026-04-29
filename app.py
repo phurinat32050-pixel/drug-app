@@ -1,96 +1,165 @@
 import streamlit as st
 import pandas as pd
-
-st.set_page_config(page_title="Drug & Disease System", page_icon="💊", layout="wide")
-st.title("💊 ระบบค้นหายาและรหัสโรค")
+import os
+from openai import OpenAI
 
 # =========================
-# โหลดข้อมูล
+# CONFIG
 # =========================
-try:
+st.set_page_config(
+    page_title="OPD Coding System",
+    page_icon="🏥",
+    layout="wide"
+)
+
+# =========================
+# STYLE (UI โรงพยาบาล)
+# =========================
+st.markdown("""
+<style>
+.main {
+    background-color: #f4f6f9;
+}
+.header {
+    background-color: #1f4e79;
+    padding: 15px;
+    border-radius: 10px;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+}
+.card {
+    background-color: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0px 1px 5px rgba(0,0,0,0.1);
+}
+</style>
+""", unsafe_allow_html=True)
+
+# =========================
+# HEADER
+# =========================
+st.markdown('<div class="header">🏥 ระบบค้นหายาและรหัสโรคผู้ป่วยนอก (OPD)</div>', unsafe_allow_html=True)
+
+# =========================
+# LOAD DATA
+# =========================
+@st.cache_data
+def load_data():
     df = pd.read_excel("DRUG DISEASE.xlsx")
     df = df.dropna(how="all")
     df.columns = df.columns.str.strip()
+    return df
+
+try:
+    df = load_data()
 except:
-    st.error("❌ โหลดไฟล์ไม่ได้")
+    st.error("❌ ไม่พบไฟล์ DRUG DISEASE.xlsx")
     st.stop()
 
-# =========================
-# หา column อัตโนมัติ
-# =========================
-drug_col = None
-disease_col = None
-code_col = None
-
-for col in df.columns:
-    if "ยา" in col:
-        drug_col = col
-    elif "วินิจฉัย" in col:
-        disease_col = col
-    elif "รหัส" in col:
-        code_col = col
-
-if not drug_col or not disease_col or not code_col:
-    st.error(f"❌ คอลัมน์ไม่ครบ: {list(df.columns)}")
-    st.stop()
+drug_col = df.columns[0]
+property_col = df.columns[1]
+code_col = df.columns[2]
 
 # =========================
-# 🔥 ฟังก์ชัน AI (กึ่ง AI)
+# SIDEBAR MENU
 # =========================
-def ai_suggest(drug_input):
-    drug_input = drug_input.lower()
-    result = df[df[drug_col].astype(str).str.lower().str.contains(drug_input)]
-
-    if not result.empty:
-        return result[[drug_col, disease_col, code_col]].drop_duplicates()
-    else:
-        return None
-
-# =========================
-# เลือกโหมด
-# =========================
-mode = st.radio(
-    "🔍 เลือกโหมด",
-    ["ยา → รหัสโรค", "รหัสโรค → ยา", "🤖 AI แนะนำโรค"],
-    horizontal=True
+st.sidebar.title("📋 เมนูระบบ")
+menu = st.sidebar.radio(
+    "เลือกการทำงาน",
+    ["🔍 ค้นหาข้อมูล", "🤖 AI แนะนำ", "📊 รายงาน"]
 )
 
-st.divider()
+st.sidebar.markdown("---")
+st.sidebar.info("ระบบ Drug Ask ICD-10")
 
 # =========================
-# 🟢 โหมด 1
+# AI SETUP
 # =========================
-if mode == "ยา → รหัสโรค":
+client = None
+if os.getenv("OPENAI_API_KEY"):
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    selected = st.multiselect("💊 เลือกยา", sorted(df[drug_col].astype(str).unique()))
-    result = df[df[drug_col].isin(selected)] if selected else df
+def ask_ai(text):
+    if not client:
+        return "⚠️ ยังไม่ได้ตั้งค่า API KEY"
 
-    st.dataframe(result[[drug_col, code_col]], use_container_width=True)
+    context = df.head(30).to_string()
+
+    prompt = f"""
+คุณคือผู้ช่วยเวชสถิติ
+ให้แนะนำข้อมูลจากยา
+
+{context}
+
+คำถาม: {text}
+
+ตอบแบบ:
+ชื่อยา | สรรพคุณ | รหัสโรค
+"""
+
+    res = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return res.choices[0].message.content
 
 # =========================
-# 🔵 โหมด 2
+# PAGE 1: SEARCH
 # =========================
-elif mode == "รหัสโรค → ยา":
+if menu == "🔍 ค้นหาข้อมูล":
 
-    selected = st.multiselect("🦠 เลือกรหัสโรค", sorted(df[code_col].astype(str).unique()))
-    result = df[df[code_col].isin(selected)] if selected else df
+    st.subheader("🔍 ค้นหาข้อมูลยาและรหัสโรค")
 
-    st.dataframe(result[[drug_col, code_col]], use_container_width=True)
+    col1, col2 = st.columns(2)
+
+    with col1:
+        keyword = st.text_input("💊 ค้นหาชื่อยา")
+
+    with col2:
+        code = st.text_input("🦠 ค้นหารหัสโรค")
+
+    result = df.copy()
+
+    if keyword:
+        result = result[result[drug_col].astype(str).str.contains(keyword, case=False)]
+
+    if code:
+        result = result[result[code_col].astype(str).str.contains(code, case=False)]
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.dataframe(result[[drug_col, property_col, code_col]], use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================
-# 🤖 โหมด 3: AI
+# PAGE 2: AI
+# =========================
+elif menu == "🤖 AI แนะนำ":
+
+    st.subheader("🤖 ระบบช่วยแนะนำ (AI)")
+
+    user_input = st.text_input("พิมพ์ เช่น Metformin หรือ เบาหวาน")
+
+    if user_input:
+        with st.spinner("กำลังวิเคราะห์..."):
+            result = ask_ai(user_input)
+
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.write(result)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# =========================
+# PAGE 3: REPORT
 # =========================
 else:
 
-    st.subheader("🤖 AI แนะนำโรคจากชื่อยา")
+    st.subheader("📊 รายงานข้อมูล")
 
-    user_input = st.text_input("💬 พิมพ์ชื่อยา เช่น Metformin")
+    st.metric("จำนวนรายการยา", len(df))
+    st.metric("จำนวนรหัสโรค", df[code_col].nunique())
 
-    if user_input:
-        ai_result = ai_suggest(user_input)
-
-        if ai_result is not None:
-            st.success("✅ AI แนะนำผลลัพธ์")
-            st.dataframe(ai_result, use_container_width=True)
-        else:
-            st.warning("❌ ไม่พบข้อมูล")
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.dataframe(df.head(50), use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
