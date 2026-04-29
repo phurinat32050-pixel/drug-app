@@ -31,14 +31,10 @@ st.markdown("""
     padding: 15px;
     border-radius: 10px;
     border-left: 6px solid #1f4e79;
-    font-size: 16px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
-# HEADER
-# =========================
 st.markdown('<div class="header">🏥 ระบบค้นหายาและรหัสโรคผู้ป่วยนอก (OPD)</div>', unsafe_allow_html=True)
 
 # =========================
@@ -58,7 +54,7 @@ property_col = df.columns[1]
 code_col = df.columns[2]
 
 # =========================
-# 📌 รายการ ICD-10 กลุ่ม 26 โรคเรื้อรัง (ตัวอย่างหลัก)
+# ICD กลุ่มเรื้อรัง
 # =========================
 chronic_codes = [
     "E10","E11","I10","I11","I20","I25","I50",
@@ -68,61 +64,30 @@ chronic_codes = [
 ]
 
 # =========================
-# SESSION STATE
-# =========================
-if "chronic_mode" not in st.session_state:
-    st.session_state.chronic_mode = False
-
-# =========================
 # SIDEBAR
 # =========================
 st.sidebar.title("📋 เมนูระบบ")
-menu = st.sidebar.radio("เลือกการทำงาน", ["🔍 ค้นหาข้อมูล", "📊 รายงาน"])
+menu = st.sidebar.radio(
+    "เลือกการทำงาน",
+    ["🔍 ค้นหาข้อมูล", "📊 Dashboard โรค"]
+)
 
 # =========================
-# 🔍 SEARCH PAGE
+# 🔍 SEARCH
 # =========================
 if menu == "🔍 ค้นหาข้อมูล":
 
     st.subheader("🔍 ค้นหายาและรหัสโรค")
 
-    # =========================
-    # 🔥 ปุ่ม 26 โรคเรื้อรัง
-    # =========================
-    col_btn1, col_btn2 = st.columns(2)
-
-    with col_btn1:
-        if st.button("📌 แสดง 26 โรคเรื้อรัง"):
-            st.session_state.chronic_mode = True
-
-    with col_btn2:
-        if st.button("❌ ล้างตัวกรอง"):
-            st.session_state.chronic_mode = False
-
-    # =========================
-    # DROPDOWN
-    # =========================
     col1, col2 = st.columns(2)
 
     with col1:
-        selected_drug = st.selectbox(
-            "💊 เลือกยา",
-            [""] + sorted(df[drug_col].astype(str).unique())
-        )
+        selected_drug = st.selectbox("💊 เลือกยา", [""] + sorted(df[drug_col].astype(str).unique()))
 
     with col2:
-        selected_code = st.selectbox(
-            "🦠 เลือกรหัสโรค",
-            [""] + sorted(df[code_col].astype(str).unique())
-        )
+        selected_code = st.selectbox("🦠 เลือกรหัสโรค", [""] + sorted(df[code_col].astype(str).unique()))
 
     result = df.copy()
-
-    # =========================
-    # 🔗 FILTER
-    # =========================
-    if st.session_state.chronic_mode:
-        result = result[result[code_col].isin(chronic_codes)]
 
     if selected_drug:
         result = result[result[drug_col] == selected_drug]
@@ -130,52 +95,51 @@ if menu == "🔍 ค้นหาข้อมูล":
     if selected_code:
         result = result[result[code_col] == selected_code]
 
-    # =========================
-    # 💡 แสดงสถานะ
-    # =========================
-    if st.session_state.chronic_mode:
-        st.info("📌 กำลังแสดงเฉพาะกลุ่ม 26 โรคเรื้อรัง")
-
-    # =========================
-    # 🔥 สรรพคุณเด่น
-    # =========================
+    # สรรพคุณเด่น
     if selected_drug:
-        properties = result[property_col].dropna().unique()
-
-        if len(properties) > 0:
+        props = result[property_col].dropna().unique()
+        if len(props) > 0:
             st.markdown("### 💡 สรรพคุณของยา")
-            for prop in properties:
-                st.markdown(f'<div class="highlight">• {prop}</div>', unsafe_allow_html=True)
+            for p in props:
+                st.markdown(f'<div class="highlight">• {p}</div>', unsafe_allow_html=True)
 
-    # =========================
-    # TABLE
-    # =========================
-    st.markdown('<div class="card">', unsafe_allow_html=True)
     st.dataframe(result[[drug_col, property_col, code_col]], use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # =========================
-    # 🔗 SUGGEST
-    # =========================
-    if selected_drug:
-        st.success(f"💡 ยา '{selected_drug}' ใช้กับรหัสโรค:")
-        st.write(result[code_col].unique())
-
-    if selected_code:
-        st.success(f"💡 รหัสโรค '{selected_code}' ใช้ยาดังนี้:")
-        st.write(result[drug_col].unique())
 
 # =========================
-# 📊 REPORT
+# 📊 DASHBOARD
 # =========================
 else:
 
-    st.subheader("📊 สรุปข้อมูล")
+    st.subheader("📊 Dashboard เฉพาะโรค")
 
+    # เลือกเฉพาะ 26 โรคเรื้อรัง
+    chronic_df = df[df[code_col].isin(chronic_codes)]
+
+    selected_code = st.selectbox(
+        "🦠 เลือกรหัสโรค",
+        sorted(chronic_df[code_col].unique())
+    )
+
+    filtered = chronic_df[chronic_df[code_col] == selected_code]
+
+    # =========================
+    # METRIC
+    # =========================
     col1, col2 = st.columns(2)
-    col1.metric("จำนวนรายการยา", len(df))
-    col2.metric("จำนวนรหัสโรค", df[code_col].nunique())
+    col1.metric("จำนวนรายการยา", len(filtered))
+    col2.metric("จำนวนสรรพคุณ", filtered[property_col].nunique())
 
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.dataframe(df.head(50), use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # =========================
+    # กราฟ
+    # =========================
+    st.markdown("### 📈 จำนวนยาในโรคนี้")
+
+    chart_data = filtered[drug_col].value_counts()
+
+    st.bar_chart(chart_data)
+
+    # =========================
+    # รายการยา
+    # =========================
+    st.markdown("### 💊 รายการยา")
+    st.dataframe(filtered[[drug_col, property_col]], use_container_width=True)
