@@ -124,13 +124,11 @@ if menu == "🔍 ค้นหา":
 
     result = df.copy()
 
-    # filter chronic
     if st.session_state.chronic:
         result = result[
             result[code_col].astype(str).str.strip().str.startswith(tuple(chronic_codes))
         ]
 
-    # search
     if search:
         result = result[
             result[drug_col].astype(str).str.contains(search, case=False) |
@@ -148,7 +146,6 @@ if menu == "🔍 ค้นหา":
         if selected_code in disease_map:
             st.info(f"🦠 {disease_map[selected_code]}")
 
-    # graph
     if not result.empty:
         st.markdown("### 📊 จำนวนยา")
         st.bar_chart(result[drug_col].value_counts().head(10))
@@ -156,31 +153,32 @@ if menu == "🔍 ค้นหา":
     st.dataframe(result[[drug_col, property_col, code_col]], use_container_width=True)
 
 # =========================
-# 📊 DASHBOARD
+# 📊 DASHBOARD (อัปเกรดใหม่)
 # =========================
 else:
 
-    st.subheader("📊 Dashboard โรค")
+    st.subheader("📊 Dashboard รหัสโรค → จำนวนยา")
 
-    selected_code = st.selectbox(
-        "🦠 เลือกโรค",
-        sorted(df[code_col].astype(str).unique()),
-        key="dashboard_code"
-    )
+    # 🔥 สร้าง ICD กลุ่ม (E11.9 → E11)
+    df["ICD_group"] = df[code_col].astype(str).str.strip().str[:3]
 
-    filtered = df[
-        df[code_col].astype(str).str.strip().str.startswith(selected_code)
-    ]
+    # 🔥 นับจำนวนยา
+    chart_data = df.groupby("ICD_group")[drug_col].count().sort_values(ascending=False)
 
-    if selected_code in disease_map:
-        st.success(f"📌 {disease_map[selected_code]}")
+    # =========================
+    # 📊 กราฟ
+    # =========================
+    st.markdown("### 📈 จำนวนยาแยกตามรหัสโรค")
+    st.bar_chart(chart_data)
 
-    col1, col2 = st.columns(2)
-    col1.metric("จำนวนยา", len(filtered))
-    col2.metric("จำนวนสรรพคุณ", filtered[property_col].nunique())
+    # =========================
+    # 📋 ตาราง
+    # =========================
+    chart_df = chart_data.reset_index()
+    chart_df.columns = ["รหัสโรค", "จำนวนยา"]
 
-    st.markdown("### 📈 Top ยา")
-    st.bar_chart(filtered[drug_col].value_counts().head(10))
+    # เพิ่มชื่อโรค
+    chart_df["ชื่อโรค"] = chart_df["รหัสโรค"].map(disease_map)
 
-    st.markdown("### 💊 รายการยา")
-    st.dataframe(filtered[[drug_col, property_col]], use_container_width=True)
+    st.markdown("### 📋 รายละเอียด")
+    st.dataframe(chart_df, use_container_width=True)
