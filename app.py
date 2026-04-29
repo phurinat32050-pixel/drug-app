@@ -114,10 +114,20 @@ if menu == "🔍 ค้นหา":
 
     result = df.copy()
 
-    # ===== filter =====
+    # =========================
+    # 🔥 FIX: จับ ICD แบบขึ้นต้น
+    # =========================
     if st.session_state.chronic:
-        result = result[result[code_col].isin(chronic_codes)]
+        result = result[
+            result[code_col]
+            .astype(str)
+            .str.strip()
+            .str.startswith(tuple(chronic_codes))
+        ]
 
+    # =========================
+    # filter อื่น ๆ
+    # =========================
     if search:
         result = result[
             result[drug_col].astype(str).str.contains(search, case=False) |
@@ -162,9 +172,15 @@ else:
 
     st.subheader("📊 Dashboard โรค")
 
-    selected_code = st.selectbox("🦠 เลือกโรค", sorted(df[code_col].unique()))
+    selected_code = st.selectbox("🦠 เลือกโรค", sorted(df[code_col].astype(str).unique()))
 
-    filtered = df[df[code_col] == selected_code]
+    # 🔥 FIX ตรงนี้ด้วย
+    filtered = df[
+        df[code_col]
+        .astype(str)
+        .str.strip()
+        .str.startswith(selected_code)
+    ]
 
     if selected_code in disease_map:
         st.success(f"📌 {disease_map[selected_code]}")
