@@ -11,7 +11,6 @@ st.set_page_config(page_title="Drug Ask ICD-10", page_icon="💊", layout="wide"
 # =========================
 st.markdown("""
 <style>
-.main {background-color: #f4f6f9;}
 .header {
     background-color: #1f4e79;
     padding: 15px;
@@ -23,8 +22,8 @@ st.markdown("""
 .highlight {
     background-color: #fff3cd;
     padding: 10px;
-    border-radius: 8px;
     border-left: 6px solid orange;
+    border-radius: 8px;
     margin-bottom:5px;
 }
 </style>
@@ -51,20 +50,24 @@ code_col = df.columns[2]
 # =========================
 # SESSION INIT
 # =========================
-if "chronic" not in st.session_state:
-    st.session_state.chronic = False
-if "drug_select" not in st.session_state:
-    st.session_state.drug_select = ""
-if "code_select" not in st.session_state:
-    st.session_state.code_select = ""
-if "search_box" not in st.session_state:
-    st.session_state.search_box = ""
+defaults = {
+    "chronic": False,
+    "drug_select": "",
+    "code_select": "",
+    "search_box": "",
+    "dashboard_code": ""
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # =========================
 # ICD
 # =========================
 disease_map = {
-    "E11":"เบาหวาน","I10":"ความดัน","I50":"หัวใจล้มเหลว"
+    "E11":"เบาหวาน","I10":"ความดัน","I50":"หัวใจล้มเหลว",
+    "I63":"Stroke","C80":"มะเร็ง"
 }
 
 chronic_codes = list(disease_map.keys())
@@ -82,7 +85,6 @@ if menu == "🔍 ค้นหา":
 
     st.subheader("🔍 ค้นหายาและรหัสโรค")
 
-    # ===== ปุ่ม =====
     colb1, colb2, colb3 = st.columns(3)
 
     with colb1:
@@ -102,7 +104,6 @@ if menu == "🔍 ค้นหา":
             st.session_state.clear()
             st.rerun()
 
-    # ===== search =====
     search = st.text_input("🔍 ค้นหา", key="search_box")
 
     col1, col2 = st.columns(2)
@@ -123,15 +124,13 @@ if menu == "🔍 ค้นหา":
 
     result = df.copy()
 
-    # ===== filter =====
+    # filter chronic
     if st.session_state.chronic:
         result = result[
-            result[code_col]
-            .astype(str)
-            .str.strip()
-            .str.startswith(tuple(chronic_codes))
+            result[code_col].astype(str).str.strip().str.startswith(tuple(chronic_codes))
         ]
 
+    # search
     if search:
         result = result[
             result[drug_col].astype(str).str.contains(search, case=False) |
@@ -143,25 +142,25 @@ if menu == "🔍 ค้นหา":
 
     if selected_code:
         result = result[
-            result[code_col]
-            .astype(str)
-            .str.startswith(selected_code)
+            result[code_col].astype(str).str.startswith(selected_code)
         ]
 
         if selected_code in disease_map:
             st.info(f"🦠 {disease_map[selected_code]}")
 
-    # =========================
-    # TABLE
-    # =========================
+    # graph
+    if not result.empty:
+        st.markdown("### 📊 จำนวนยา")
+        st.bar_chart(result[drug_col].value_counts().head(10))
+
     st.dataframe(result[[drug_col, property_col, code_col]], use_container_width=True)
 
 # =========================
-# DASHBOARD
+# 📊 DASHBOARD
 # =========================
 else:
 
-    st.subheader("📊 Dashboard")
+    st.subheader("📊 Dashboard โรค")
 
     selected_code = st.selectbox(
         "🦠 เลือกโรค",
@@ -170,10 +169,18 @@ else:
     )
 
     filtered = df[
-        df[code_col]
-        .astype(str)
-        .str.strip()
-        .str.startswith(selected_code)
+        df[code_col].astype(str).str.strip().str.startswith(selected_code)
     ]
 
+    if selected_code in disease_map:
+        st.success(f"📌 {disease_map[selected_code]}")
+
+    col1, col2 = st.columns(2)
+    col1.metric("จำนวนยา", len(filtered))
+    col2.metric("จำนวนสรรพคุณ", filtered[property_col].nunique())
+
+    st.markdown("### 📈 Top ยา")
     st.bar_chart(filtered[drug_col].value_counts().head(10))
+
+    st.markdown("### 💊 รายการยา")
+    st.dataframe(filtered[[drug_col, property_col]], use_container_width=True)
