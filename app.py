@@ -1,16 +1,10 @@
 import streamlit as st
 import pandas as pd
-import os
-from openai import OpenAI
 
 # =========================
 # CONFIG
 # =========================
-st.set_page_config(
-    page_title="OPD Coding System",
-    page_icon="🏥",
-    layout="wide"
-)
+st.set_page_config(page_title="Drug Ask ICD-10", page_icon="💊", layout="wide")
 
 # =========================
 # STYLE (UI โรงพยาบาล)
@@ -25,7 +19,7 @@ st.markdown("""
     padding: 15px;
     border-radius: 10px;
     color: white;
-    font-size: 24px;
+    font-size: 22px;
     font-weight: bold;
 }
 .card {
@@ -58,60 +52,31 @@ except:
     st.error("❌ ไม่พบไฟล์ DRUG DISEASE.xlsx")
     st.stop()
 
+# =========================
+# COLUMN
+# =========================
 drug_col = df.columns[0]
 property_col = df.columns[1]
 code_col = df.columns[2]
 
 # =========================
-# SIDEBAR MENU
+# SIDEBAR
 # =========================
 st.sidebar.title("📋 เมนูระบบ")
 menu = st.sidebar.radio(
     "เลือกการทำงาน",
-    ["🔍 ค้นหาข้อมูล", "🤖 AI แนะนำ", "📊 รายงาน"]
+    ["🔍 ค้นหาข้อมูล", "📊 รายงาน"]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info("ระบบ Drug Ask ICD-10")
+st.sidebar.info("Drug Ask ICD-10")
 
 # =========================
-# AI SETUP
-# =========================
-client = None
-if os.getenv("OPENAI_API_KEY"):
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-def ask_ai(text):
-    if not client:
-        return "⚠️ ยังไม่ได้ตั้งค่า API KEY"
-
-    context = df.head(30).to_string()
-
-    prompt = f"""
-คุณคือผู้ช่วยเวชสถิติ
-ให้แนะนำข้อมูลจากยา
-
-{context}
-
-คำถาม: {text}
-
-ตอบแบบ:
-ชื่อยา | สรรพคุณ | รหัสโรค
-"""
-
-    res = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    return res.choices[0].message.content
-
-# =========================
-# PAGE 1: SEARCH
+# 🔍 PAGE 1
 # =========================
 if menu == "🔍 ค้นหาข้อมูล":
 
-    st.subheader("🔍 ค้นหาข้อมูลยาและรหัสโรค")
+    st.subheader("🔍 ค้นหายาและรหัสโรค")
 
     col1, col2 = st.columns(2)
 
@@ -134,31 +99,15 @@ if menu == "🔍 ค้นหาข้อมูล":
     st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================
-# PAGE 2: AI
-# =========================
-elif menu == "🤖 AI แนะนำ":
-
-    st.subheader("🤖 ระบบช่วยแนะนำ (AI)")
-
-    user_input = st.text_input("พิมพ์ เช่น Metformin หรือ เบาหวาน")
-
-    if user_input:
-        with st.spinner("กำลังวิเคราะห์..."):
-            result = ask_ai(user_input)
-
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.write(result)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# =========================
-# PAGE 3: REPORT
+# 📊 PAGE 2
 # =========================
 else:
 
-    st.subheader("📊 รายงานข้อมูล")
+    st.subheader("📊 สรุปข้อมูล")
 
-    st.metric("จำนวนรายการยา", len(df))
-    st.metric("จำนวนรหัสโรค", df[code_col].nunique())
+    col1, col2 = st.columns(2)
+    col1.metric("จำนวนรายการยา", len(df))
+    col2.metric("จำนวนรหัสโรค", df[code_col].nunique())
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.dataframe(df.head(50), use_container_width=True)
