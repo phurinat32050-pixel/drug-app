@@ -20,17 +20,12 @@ st.markdown("""
     font-size: 22px;
     font-weight: bold;
 }
-.card {
-    background-color: white;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0px 1px 5px rgba(0,0,0,0.1);
-}
 .highlight {
-    background-color: #e6f2ff;
-    padding: 15px;
-    border-radius: 10px;
-    border-left: 6px solid #1f4e79;
+    background-color: #fff3cd;
+    padding: 10px;
+    border-radius: 8px;
+    border-left: 6px solid orange;
+    margin-bottom:5px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -54,30 +49,60 @@ property_col = df.columns[1]
 code_col = df.columns[2]
 
 # =========================
-# ICD กลุ่มเรื้อรัง
+# โรค + ICD
 # =========================
-chronic_codes = [
-    "E10","E11","I10","I11","I20","I25","I50",
-    "J44","J45","K21","M10","M06","N18",
-    "E78","E03","M81","G20","G30","F32",
-    "C50","N40"
-]
+disease_map = {
+    "E11":"เบาหวาน","I10":"ความดัน","I50":"หัวใจล้มเหลว",
+    "I63":"Stroke","C80":"มะเร็ง","B20":"HIV",
+    "J43":"ถุงลมโป่งพอง","N18":"ไตวาย",
+    "G20":"พาร์กินสัน","E78":"ไขมันสูง",
+    "M06":"รูมาตอยด์","F03":"สมองเสื่อม"
+}
+
+chronic_codes = list(disease_map.keys())
 
 # =========================
-# SIDEBAR
+# ยาที่ใช้บ่อย
+# =========================
+top_drugs = ["Metformin","Amlodipine","Losartan","Simvastatin","Aspirin","Furosemide"]
+
+# =========================
+# SESSION
+# =========================
+if "chronic" not in st.session_state:
+    st.session_state.chronic = False
+
+# =========================
+# MENU
 # =========================
 st.sidebar.title("📋 เมนูระบบ")
-menu = st.sidebar.radio(
-    "เลือกการทำงาน",
-    ["🔍 ค้นหาข้อมูล", "📊 Dashboard โรค"]
-)
+menu = st.sidebar.radio("เลือกการทำงาน", ["🔍 ค้นหา", "📊 Dashboard"])
 
 # =========================
 # 🔍 SEARCH
 # =========================
-if menu == "🔍 ค้นหาข้อมูล":
+if menu == "🔍 ค้นหา":
 
     st.subheader("🔍 ค้นหายาและรหัสโรค")
+
+    # ===== ปุ่ม =====
+    colb1, colb2, colb3 = st.columns(3)
+
+    with colb1:
+        if st.button("📌 26 โรคเรื้อรัง"):
+            st.session_state.chronic = True
+
+    with colb2:
+        if st.button("❌ ล้างตัวกรอง"):
+            st.session_state.chronic = False
+
+    with colb3:
+        if st.button("🔄 รีเซ็ตทั้งหมด"):
+            st.session_state.clear()
+            st.rerun()
+
+    # ===== search =====
+    search = st.text_input("🔍 ค้นหา (ยา / ICD)")
 
     col1, col2 = st.columns(2)
 
@@ -89,20 +114,45 @@ if menu == "🔍 ค้นหาข้อมูล":
 
     result = df.copy()
 
+    # ===== filter =====
+    if st.session_state.chronic:
+        result = result[result[code_col].isin(chronic_codes)]
+
+    if search:
+        result = result[
+            result[drug_col].astype(str).str.contains(search, case=False) |
+            result[code_col].astype(str).str.contains(search, case=False)
+        ]
+
     if selected_drug:
         result = result[result[drug_col] == selected_drug]
 
     if selected_code:
         result = result[result[code_col] == selected_code]
 
-    # สรรพคุณเด่น
-    if selected_drug:
-        props = result[property_col].dropna().unique()
-        if len(props) > 0:
-            st.markdown("### 💡 สรรพคุณของยา")
-            for p in props:
-                st.markdown(f'<div class="highlight">• {p}</div>', unsafe_allow_html=True)
+        if selected_code in disease_map:
+            st.info(f"🦠 {disease_map[selected_code]}")
 
+    # =========================
+    # ⭐ ยาที่ใช้บ่อย
+    # =========================
+    if selected_code:
+        st.markdown("### ⭐ ยาที่ใช้บ่อย")
+        common = result[result[drug_col].isin(top_drugs)]
+
+        for d in common[drug_col].unique():
+            st.markdown(f'<div class="highlight">⭐ {d}</div>', unsafe_allow_html=True)
+
+    # =========================
+    # 📊 กราฟจำนวนยา
+    # =========================
+    if not result.empty:
+        st.markdown("### 📊 จำนวนยา")
+        st.bar_chart(result[drug_col].value_counts().head(10))
+
+    # =========================
+    # TABLE
+    # =========================
     st.dataframe(result[[drug_col, property_col, code_col]], use_container_width=True)
 
 # =========================
@@ -110,36 +160,20 @@ if menu == "🔍 ค้นหาข้อมูล":
 # =========================
 else:
 
-    st.subheader("📊 Dashboard เฉพาะโรค")
+    st.subheader("📊 Dashboard โรค")
 
-    # เลือกเฉพาะ 26 โรคเรื้อรัง
-    chronic_df = df[df[code_col].isin(chronic_codes)]
+    selected_code = st.selectbox("🦠 เลือกโรค", sorted(df[code_col].unique()))
 
-    selected_code = st.selectbox(
-        "🦠 เลือกรหัสโรค",
-        sorted(chronic_df[code_col].unique())
-    )
+    filtered = df[df[code_col] == selected_code]
 
-    filtered = chronic_df[chronic_df[code_col] == selected_code]
+    if selected_code in disease_map:
+        st.success(f"📌 {disease_map[selected_code]}")
 
-    # =========================
-    # METRIC
-    # =========================
     col1, col2 = st.columns(2)
-    col1.metric("จำนวนรายการยา", len(filtered))
+    col1.metric("จำนวนยา", len(filtered))
     col2.metric("จำนวนสรรพคุณ", filtered[property_col].nunique())
 
-    # =========================
-    # กราฟ
-    # =========================
-    st.markdown("### 📈 จำนวนยาในโรคนี้")
+    st.markdown("### 📈 Top ยา")
+    st.bar_chart(filtered[drug_col].value_counts().head(10))
 
-    chart_data = filtered[drug_col].value_counts()
-
-    st.bar_chart(chart_data)
-
-    # =========================
-    # รายการยา
-    # =========================
-    st.markdown("### 💊 รายการยา")
-    st.dataframe(filtered[[drug_col, property_col]], use_container_width=True)
+    st.dataframe(filtered[[drug_col, property_col]])
