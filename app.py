@@ -49,28 +49,25 @@ property_col = df.columns[1]
 code_col = df.columns[2]
 
 # =========================
-# โรค + ICD
-# =========================
-disease_map = {
-    "E11":"เบาหวาน","I10":"ความดัน","I50":"หัวใจล้มเหลว",
-    "I63":"Stroke","C80":"มะเร็ง","B20":"HIV",
-    "J43":"ถุงลมโป่งพอง","N18":"ไตวาย",
-    "G20":"พาร์กินสัน","E78":"ไขมันสูง",
-    "M06":"รูมาตอยด์","F03":"สมองเสื่อม"
-}
-
-chronic_codes = list(disease_map.keys())
-
-# =========================
-# ยาที่ใช้บ่อย
-# =========================
-top_drugs = ["Metformin","Amlodipine","Losartan","Simvastatin","Aspirin","Furosemide"]
-
-# =========================
-# SESSION
+# SESSION INIT
 # =========================
 if "chronic" not in st.session_state:
     st.session_state.chronic = False
+if "drug_select" not in st.session_state:
+    st.session_state.drug_select = ""
+if "code_select" not in st.session_state:
+    st.session_state.code_select = ""
+if "search_box" not in st.session_state:
+    st.session_state.search_box = ""
+
+# =========================
+# ICD
+# =========================
+disease_map = {
+    "E11":"เบาหวาน","I10":"ความดัน","I50":"หัวใจล้มเหลว"
+}
+
+chronic_codes = list(disease_map.keys())
 
 # =========================
 # MENU
@@ -95,6 +92,10 @@ if menu == "🔍 ค้นหา":
     with colb2:
         if st.button("❌ ล้างตัวกรอง"):
             st.session_state.chronic = False
+            st.session_state.drug_select = ""
+            st.session_state.code_select = ""
+            st.session_state.search_box = ""
+            st.rerun()
 
     with colb3:
         if st.button("🔄 รีเซ็ตทั้งหมด"):
@@ -102,21 +103,27 @@ if menu == "🔍 ค้นหา":
             st.rerun()
 
     # ===== search =====
-    search = st.text_input("🔍 ค้นหา (ยา / ICD)")
+    search = st.text_input("🔍 ค้นหา", key="search_box")
 
     col1, col2 = st.columns(2)
 
     with col1:
-        selected_drug = st.selectbox("💊 เลือกยา", [""] + sorted(df[drug_col].astype(str).unique()))
+        selected_drug = st.selectbox(
+            "💊 เลือกยา",
+            [""] + sorted(df[drug_col].astype(str).unique()),
+            key="drug_select"
+        )
 
     with col2:
-        selected_code = st.selectbox("🦠 เลือกรหัสโรค", [""] + sorted(df[code_col].astype(str).unique()))
+        selected_code = st.selectbox(
+            "🦠 เลือกรหัสโรค",
+            [""] + sorted(df[code_col].astype(str).unique()),
+            key="code_select"
+        )
 
     result = df.copy()
 
-    # =========================
-    # 🔥 FIX: จับ ICD แบบขึ้นต้น
-    # =========================
+    # ===== filter =====
     if st.session_state.chronic:
         result = result[
             result[code_col]
@@ -125,9 +132,6 @@ if menu == "🔍 ค้นหา":
             .str.startswith(tuple(chronic_codes))
         ]
 
-    # =========================
-    # filter อื่น ๆ
-    # =========================
     if search:
         result = result[
             result[drug_col].astype(str).str.contains(search, case=False) |
@@ -138,27 +142,14 @@ if menu == "🔍 ค้นหา":
         result = result[result[drug_col] == selected_drug]
 
     if selected_code:
-        result = result[result[code_col] == selected_code]
+        result = result[
+            result[code_col]
+            .astype(str)
+            .str.startswith(selected_code)
+        ]
 
         if selected_code in disease_map:
             st.info(f"🦠 {disease_map[selected_code]}")
-
-    # =========================
-    # ⭐ ยาที่ใช้บ่อย
-    # =========================
-    if selected_code:
-        st.markdown("### ⭐ ยาที่ใช้บ่อย")
-        common = result[result[drug_col].isin(top_drugs)]
-
-        for d in common[drug_col].unique():
-            st.markdown(f'<div class="highlight">⭐ {d}</div>', unsafe_allow_html=True)
-
-    # =========================
-    # 📊 กราฟจำนวนยา
-    # =========================
-    if not result.empty:
-        st.markdown("### 📊 จำนวนยา")
-        st.bar_chart(result[drug_col].value_counts().head(10))
 
     # =========================
     # TABLE
@@ -166,15 +157,18 @@ if menu == "🔍 ค้นหา":
     st.dataframe(result[[drug_col, property_col, code_col]], use_container_width=True)
 
 # =========================
-# 📊 DASHBOARD
+# DASHBOARD
 # =========================
 else:
 
-    st.subheader("📊 Dashboard โรค")
+    st.subheader("📊 Dashboard")
 
-    selected_code = st.selectbox("🦠 เลือกโรค", sorted(df[code_col].astype(str).unique()))
+    selected_code = st.selectbox(
+        "🦠 เลือกโรค",
+        sorted(df[code_col].astype(str).unique()),
+        key="dashboard_code"
+    )
 
-    # 🔥 FIX ตรงนี้ด้วย
     filtered = df[
         df[code_col]
         .astype(str)
@@ -182,14 +176,4 @@ else:
         .str.startswith(selected_code)
     ]
 
-    if selected_code in disease_map:
-        st.success(f"📌 {disease_map[selected_code]}")
-
-    col1, col2 = st.columns(2)
-    col1.metric("จำนวนยา", len(filtered))
-    col2.metric("จำนวนสรรพคุณ", filtered[property_col].nunique())
-
-    st.markdown("### 📈 Top ยา")
     st.bar_chart(filtered[drug_col].value_counts().head(10))
-
-    st.dataframe(filtered[[drug_col, property_col]])
