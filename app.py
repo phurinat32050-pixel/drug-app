@@ -36,6 +36,12 @@ thead tr th {
     color: white !important;
     text-align: center !important;
 }
+tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+tbody td {
+    padding: 8px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,7 +108,7 @@ if menu == "🔍 ค้นหา":
 
     result = data.copy()
 
-    # 🔎 NORMAL SEARCH (แทน fuzzy)
+    # 🔎 SEARCH ปกติ
     if search:
         search = search.strip()
         result = result[
@@ -122,7 +128,7 @@ if menu == "🔍 ค้นหา":
         if len(name) > 0:
             st.success(f"🦠 {name[0]}")
 
-    # ⭐ highlight ยาใช้บ่อย
+    # ⭐ ยาที่ใช้บ่อย
     if "ใช้บ่อย" in result.columns:
         frequent = result[result["ใช้บ่อย"] == "⭐"]
         if not frequent.empty:
@@ -131,20 +137,17 @@ if menu == "🔍 ค้นหา":
                 st.markdown(f'<div class="highlight">⭐ {d}</div>', unsafe_allow_html=True)
 
     # =========================
-    # 📋 TABLE SMART
+    # 📋 TABLE (FIXED)
     # =========================
     if not result.empty:
 
-        display_df = result.copy()
+        display_df = result.copy().reset_index(drop=True)
 
-        new_cols = ["💊 ยา", "📌 สรรพคุณ", "🦠 ICD"]
-        if disease_name_col:
-            new_cols.append("📖 ชื่อโรค")
+        # เรียงตามชื่อยา
+        if drug_col in display_df.columns:
+            display_df = display_df.sort_values(by=drug_col)
 
-        display_df.columns = new_cols
-        display_df = display_df.sort_values(by="💊 ยา").reset_index(drop=True)
-
-        st.markdown("### 📋 ตารางข้อมูล (Filter ได้)")
+        st.markdown("### 📋 ตารางข้อมูล")
 
         edited_df = st.data_editor(
             display_df,
@@ -156,26 +159,15 @@ if menu == "🔍 ค้นหา":
         # 📊 GRAPH SYNC
         if not edited_df.empty:
             st.markdown("### 📊 กราฟจากตาราง")
-            st.bar_chart(edited_df["💊 ยา"].value_counts())
+            st.bar_chart(edited_df[drug_col].value_counts())
 
-        # 📥 EXPORT
+        # 📥 EXPORT (Excel เท่านั้น)
         st.markdown("### 📥 ดาวน์โหลด")
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            st.download_button(
-                "📥 CSV",
-                edited_df.to_csv(index=False),
-                "data.csv"
-            )
-
-        with c2:
-            st.download_button(
-                "📥 Excel",
-                convert_to_excel(edited_df),
-                "data.xlsx"
-            )
+        st.download_button(
+            "📥 Download Excel",
+            convert_to_excel(edited_df),
+            "data.xlsx"
+        )
 
     else:
         st.warning("ไม่พบข้อมูล")
