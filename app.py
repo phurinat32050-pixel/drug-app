@@ -48,12 +48,11 @@ tbody td {
 st.markdown('<div class="header">🏥 ระบบค้นหายาและรหัสโรคผู้ป่วยนอก (OPD)</div>', unsafe_allow_html=True)
 
 # =========================
-# FUNCTIONS
+# FUNCTIONS (แก้ตรงนี้)
 # =========================
 def convert_to_excel(df):
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
+    df.to_excel(output, index=False)  # ✅ ไม่ใช้ xlsxwriter
     return output.getvalue()
 
 # =========================
@@ -108,7 +107,6 @@ if menu == "🔍 ค้นหา":
 
     result = data.copy()
 
-    # 🔎 SEARCH ปกติ
     if search:
         search = search.strip()
         result = result[
@@ -122,13 +120,11 @@ if menu == "🔍 ค้นหา":
     if selected_code:
         result = result[result[code_col].astype(str).str.startswith(selected_code)]
 
-    # 🦠 ชื่อโรค
     if selected_code and disease_name_col:
         name = data[data[code_col].astype(str).str.startswith(selected_code)][disease_name_col].dropna().unique()
         if len(name) > 0:
             st.success(f"🦠 {name[0]}")
 
-    # ⭐ ยาที่ใช้บ่อย
     if "ใช้บ่อย" in result.columns:
         frequent = result[result["ใช้บ่อย"] == "⭐"]
         if not frequent.empty:
@@ -137,13 +133,12 @@ if menu == "🔍 ค้นหา":
                 st.markdown(f'<div class="highlight">⭐ {d}</div>', unsafe_allow_html=True)
 
     # =========================
-    # 📋 TABLE (FIXED)
+    # TABLE
     # =========================
     if not result.empty:
 
         display_df = result.copy().reset_index(drop=True)
 
-        # เรียงตามชื่อยา
         if drug_col in display_df.columns:
             display_df = display_df.sort_values(by=drug_col)
 
@@ -156,12 +151,12 @@ if menu == "🔍 ค้นหา":
             num_rows="dynamic"
         )
 
-        # 📊 GRAPH SYNC
+        # GRAPH
         if not edited_df.empty:
             st.markdown("### 📊 กราฟจากตาราง")
             st.bar_chart(edited_df[drug_col].value_counts())
 
-        # 📥 EXPORT (Excel เท่านั้น)
+        # EXPORT (ไม่ error แล้ว)
         st.markdown("### 📥 ดาวน์โหลด")
         st.download_button(
             "📥 Download Excel",
@@ -173,7 +168,7 @@ if menu == "🔍 ค้นหา":
         st.warning("ไม่พบข้อมูล")
 
 # =========================
-# 📊 DASHBOARD
+# DASHBOARD
 # =========================
 else:
 
@@ -195,11 +190,7 @@ else:
     col1.metric("จำนวนยา", len(filtered))
     col2.metric("จำนวนสรรพคุณ", filtered[property_col].nunique())
 
-    st.markdown("### 📈 Top ยา")
     st.bar_chart(filtered[drug_col].value_counts().head(10))
-
-    st.markdown("### 📊 จำนวนยาแต่ละโรค")
     st.bar_chart(data.groupby(code_col)[drug_col].count())
 
-    st.markdown("### 💊 รายการยา")
     st.dataframe(filtered, use_container_width=True)
