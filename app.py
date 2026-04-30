@@ -39,16 +39,13 @@ thead tr th {
 tbody tr:nth-child(even) {
     background-color: #f9f9f9;
 }
-tbody td {
-    padding: 8px !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="header">🏥 ระบบค้นหายาและรหัสโรคผู้ป่วยนอก (OPD)</div>', unsafe_allow_html=True)
 
 # =========================
-# FUNCTIONS (แก้ตรงนี้)
+# FUNCTIONS (แก้ error)
 # =========================
 def convert_to_excel(df):
     output = io.BytesIO()
@@ -72,6 +69,19 @@ def load_data():
 df, chronic_df = load_data()
 
 # =========================
+# SESSION STATE (คืนของเดิม)
+# =========================
+defaults = {
+    "drug": "",
+    "code": "",
+    "search": ""
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+# =========================
 # SIDEBAR
 # =========================
 st.sidebar.title("📋 เมนูระบบ")
@@ -93,20 +103,41 @@ if menu == "🔍 ค้นหา":
 
     st.subheader(f"🔍 ค้นหายา / ICD ({data_mode})")
 
-    search = st.text_input("🔍 พิมพ์ค้นหา")
+    # 🔘 ปุ่มเดิม
+    colb1, colb2, colb3 = st.columns(3)
+
+    with colb1:
+        if st.button("📌 เฉพาะโรคเรื้อรัง"):
+            st.info("กรุณาเลือก '26 โรคเรื้อรัง' ที่เมนูด้านซ้าย")
+
+    with colb2:
+        if st.button("❌ ล้างค่า"):
+            st.session_state.drug = ""
+            st.session_state.code = ""
+            st.session_state.search = ""
+            st.rerun()
+
+    with colb3:
+        if st.button("🔄 รีเซ็ต"):
+            st.session_state.clear()
+            st.rerun()
+
+    # 🔍 SEARCH BOX
+    search = st.text_input("🔍 พิมพ์ค้นหา", key="search")
 
     col1, col2 = st.columns(2)
 
     with col1:
         drug_list = [""] + sorted(data[drug_col].dropna().astype(str).unique())
-        selected_drug = st.selectbox("💊 เลือกยา", drug_list)
+        selected_drug = st.selectbox("💊 เลือกยา", drug_list, key="drug")
 
     with col2:
         code_list = [""] + sorted(data[code_col].dropna().astype(str).unique())
-        selected_code = st.selectbox("🦠 เลือก ICD", code_list)
+        selected_code = st.selectbox("🦠 เลือก ICD", code_list, key="code")
 
     result = data.copy()
 
+    # 🔎 SEARCH (ปกติ)
     if search:
         search = search.strip()
         result = result[
@@ -114,17 +145,20 @@ if menu == "🔍 ค้นหา":
             result[code_col].astype(str).str.contains(search, case=False, na=False, regex=False)
         ]
 
+    # FILTER
     if selected_drug:
         result = result[result[drug_col].astype(str) == selected_drug]
 
     if selected_code:
         result = result[result[code_col].astype(str).str.startswith(selected_code)]
 
+    # 🦠 ชื่อโรค
     if selected_code and disease_name_col:
         name = data[data[code_col].astype(str).str.startswith(selected_code)][disease_name_col].dropna().unique()
         if len(name) > 0:
             st.success(f"🦠 {name[0]}")
 
+    # ⭐ highlight
     if "ใช้บ่อย" in result.columns:
         frequent = result[result["ใช้บ่อย"] == "⭐"]
         if not frequent.empty:
@@ -133,7 +167,7 @@ if menu == "🔍 ค้นหา":
                 st.markdown(f'<div class="highlight">⭐ {d}</div>', unsafe_allow_html=True)
 
     # =========================
-    # TABLE
+    # 📋 TABLE
     # =========================
     if not result.empty:
 
@@ -151,12 +185,12 @@ if menu == "🔍 ค้นหา":
             num_rows="dynamic"
         )
 
-        # GRAPH
+        # 📊 GRAPH
         if not edited_df.empty:
             st.markdown("### 📊 กราฟจากตาราง")
             st.bar_chart(edited_df[drug_col].value_counts())
 
-        # EXPORT (ไม่ error แล้ว)
+        # 📥 EXPORT (ไม่ error แล้ว)
         st.markdown("### 📥 ดาวน์โหลด")
         st.download_button(
             "📥 Download Excel",
