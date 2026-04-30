@@ -122,11 +122,11 @@ if menu == "🔍 ค้นหา":
     # ✅ MULTI SELECT
     with col1:
         drug_list = sorted(data[drug_col].dropna().astype(str).unique())
-        selected_drug = st.multiselect("💊 เลือกยา", drug_list)
+        selected_drug = st.multiselect("🦠 เลือก ICD", drug_list)
 
     with col2:
         code_list = sorted(data[code_col].dropna().astype(str).unique())
-        selected_code = st.multiselect("🦠 เลือก ICD", code_list)
+        selected_code = st.multiselect("💊 เลือกยา", code_list)
 
     result = data.copy()
 
