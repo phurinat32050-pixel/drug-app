@@ -45,7 +45,7 @@ tbody tr:nth-child(even) {
 st.markdown('<div class="header">🏥 ระบบค้นหายาและรหัสโรคผู้ป่วยนอก (OPD)</div>', unsafe_allow_html=True)
 
 # =========================
-# FUNCTIONS
+# FUNCTIONS (ไม่ใช้ xlsxwriter)
 # =========================
 def convert_to_excel(df):
     output = io.BytesIO()
@@ -69,7 +69,7 @@ def load_data():
 df, chronic_df = load_data()
 
 # =========================
-# SESSION STATE
+# SESSION STATE (UI เดิม)
 # =========================
 defaults = {"drug": "", "code": "", "search": ""}
 for k, v in defaults.items():
@@ -98,6 +98,7 @@ if menu == "🔍 ค้นหา":
 
     st.subheader(f"🔍 ค้นหายา / ICD ({data_mode})")
 
+    # 🔘 ปุ่ม UI (เอามาจากโค้ดก่อนหน้า)
     colb1, colb2, colb3 = st.columns(3)
 
     with colb1:
@@ -116,12 +117,12 @@ if menu == "🔍 ค้นหา":
             st.session_state.clear()
             st.rerun()
 
-    # SEARCH
+    # 🔍 SEARCH
     search = st.text_input("🔍 พิมพ์ค้นหา", key="search")
 
     col1, col2 = st.columns(2)
 
-    # ✅ สลับให้ถูกจริง (ICD ซ้าย / ยา ขวา)
+    # ✅ ICD ซ้าย / ยา ขวา (แก้ถูกแล้ว)
     with col1:
         code_list = [""] + sorted(data[code_col].dropna().astype(str).unique())
         selected_code = st.selectbox("🦠 เลือก ICD", code_list, key="code")
@@ -132,7 +133,7 @@ if menu == "🔍 ค้นหา":
 
     result = data.copy()
 
-    # SEARCH
+    # 🔎 SEARCH
     if search:
         search = search.strip()
         result = result[
@@ -147,13 +148,13 @@ if menu == "🔍 ค้นหา":
     if selected_code:
         result = result[result[code_col].astype(str).str.startswith(selected_code)]
 
-    # ชื่อโรค
+    # 🦠 ชื่อโรค
     if selected_code and disease_name_col:
         name = data[data[code_col].astype(str).str.startswith(selected_code)][disease_name_col].dropna().unique()
         if len(name) > 0:
             st.success(f"🦠 {name[0]}")
 
-    # highlight ยา
+    # ⭐ highlight
     if "ใช้บ่อย" in result.columns:
         frequent = result[result["ใช้บ่อย"] == "⭐"]
         if not frequent.empty:
@@ -161,7 +162,9 @@ if menu == "🔍 ค้นหา":
             for d in frequent[drug_col].unique():
                 st.markdown(f'<div class="highlight">⭐ {d}</div>', unsafe_allow_html=True)
 
-    # TABLE
+    # =========================
+    # 📋 TABLE
+    # =========================
     if not result.empty:
 
         display_df = result.copy().reset_index(drop=True)
@@ -178,12 +181,12 @@ if menu == "🔍 ค้นหา":
             num_rows="dynamic"
         )
 
-        # GRAPH
+        # 📊 GRAPH
         if not edited_df.empty:
             st.markdown("### 📊 กราฟจากตาราง")
             st.bar_chart(edited_df[drug_col].value_counts())
 
-        # EXPORT
+        # 📥 EXPORT
         st.markdown("### 📥 ดาวน์โหลด")
         st.download_button(
             "📥 Download Excel",
@@ -195,7 +198,7 @@ if menu == "🔍 ค้นหา":
         st.warning("ไม่พบข้อมูล")
 
 # =========================
-# DASHBOARD
+# 📊 DASHBOARD
 # =========================
 else:
 
@@ -217,7 +220,11 @@ else:
     col1.metric("จำนวนยา", len(filtered))
     col2.metric("จำนวนสรรพคุณ", filtered[property_col].nunique())
 
+    st.markdown("### 📈 Top ยา")
     st.bar_chart(filtered[drug_col].value_counts().head(10))
+
+    st.markdown("### 📊 จำนวนยาแต่ละโรค")
     st.bar_chart(data.groupby(code_col)[drug_col].count())
 
+    st.markdown("### 💊 รายการยา")
     st.dataframe(filtered, use_container_width=True)
