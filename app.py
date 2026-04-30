@@ -124,11 +124,11 @@ if menu == "🔍 ค้นหา":
     # ✅ สลับ UI: ยาอยู่ซ้าย / ICD อยู่ขวา
     with col1:
         drug_list = [""] + sorted(data[drug_col].dropna().astype(str).unique())
-        selected_drug = st.selectbox("💊 เลือกยา", drug_list, key="drug")
+        selected_drug = st.selectbox("🦠 เลือก ICD", drug_list, key="drug")
 
     with col2:
         code_list = [""] + sorted(data[code_col].dropna().astype(str).unique())
-        selected_code = st.selectbox("🦠 เลือก ICD", code_list, key="code")
+        selected_code = st.selectbox("💊 เลือกยา", code_list, key="code")
 
     result = data.copy()
 
