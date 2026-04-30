@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import io
-from rapidfuzz import process
 
 # =========================
 # CONFIG
@@ -50,16 +49,6 @@ def convert_to_excel(df):
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False)
     return output.getvalue()
-
-def icd_color(code):
-    code = str(code)
-    if code.startswith("E"):
-        return "#fde2e2"
-    elif code.startswith("I"):
-        return "#e2f0fb"
-    elif code.startswith("J"):
-        return "#e2fbe8"
-    return ""
 
 # =========================
 # LOAD DATA
@@ -113,15 +102,12 @@ if menu == "🔍 ค้นหา":
 
     result = data.copy()
 
-    # 🔎 FUZZY SEARCH
+    # 🔎 NORMAL SEARCH (แทน fuzzy)
     if search:
-        choices = data[drug_col].dropna().astype(str).unique()
-        matches = process.extract(search, choices, limit=20, score_cutoff=60)
-        matched_names = [m[0] for m in matches]
-
+        search = search.strip()
         result = result[
-            result[drug_col].astype(str).isin(matched_names) |
-            result[code_col].astype(str).str.contains(search, case=False, na=False)
+            result[drug_col].astype(str).str.contains(search, case=False, na=False, regex=False) |
+            result[code_col].astype(str).str.contains(search, case=False, na=False, regex=False)
         ]
 
     if selected_drug:
