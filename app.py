@@ -200,7 +200,7 @@ else:
     st.subheader(f"📊 Dashboard {data_mode}")
 
     selected_code = st.selectbox(
-        "🦠 เลือก ICD",
+        "🦠 เลือกข้อมูล ",
         sorted(data[code_col].dropna().astype(str).unique())
     )
 
