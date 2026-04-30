@@ -106,9 +106,7 @@ if menu == "🔍 ค้นหา":
 
     with colb2:
         if st.button("❌ ล้างค่า"):
-            st.session_state.drug = ""
-            st.session_state.code = ""
-            st.session_state.search = ""
+            st.session_state.clear()
             st.rerun()
 
     with colb3:
@@ -121,14 +119,14 @@ if menu == "🔍 ค้นหา":
 
     col1, col2 = st.columns(2)
 
-    # ✅ สลับ UI: ยาอยู่ซ้าย / ICD อยู่ขวา
+    # ✅ MULTI SELECT
     with col1:
-        drug_list = [""] + sorted(data[drug_col].dropna().astype(str).unique())
-        selected_drug = st.selectbox("🦠 เลือก ICD", drug_list, key="drug")
+        drug_list = sorted(data[drug_col].dropna().astype(str).unique())
+        selected_drug = st.multiselect("💊 เลือกยา", drug_list)
 
     with col2:
-        code_list = [""] + sorted(data[code_col].dropna().astype(str).unique())
-        selected_code = st.selectbox("💊 เลือกยา", code_list, key="code")
+        code_list = sorted(data[code_col].dropna().astype(str).unique())
+        selected_code = st.multiselect("🦠 เลือก ICD", code_list)
 
     result = data.copy()
 
@@ -140,18 +138,18 @@ if menu == "🔍 ค้นหา":
             result[code_col].astype(str).str.contains(search, case=False, na=False, regex=False)
         ]
 
-    # FILTER
+    # FILTER (รองรับหลายค่า)
     if selected_drug:
-        result = result[result[drug_col].astype(str) == selected_drug]
+        result = result[result[drug_col].astype(str).isin(selected_drug)]
 
     if selected_code:
-        result = result[result[code_col].astype(str).str.startswith(selected_code)]
+        result = result[result[code_col].astype(str).isin(selected_code)]
 
     # ชื่อโรค
     if selected_code and disease_name_col:
-        name = data[data[code_col].astype(str).str.startswith(selected_code)][disease_name_col].dropna().unique()
+        name = data[data[code_col].astype(str).isin(selected_code)][disease_name_col].dropna().unique()
         if len(name) > 0:
-            st.success(f"🦠 {name[0]}")
+            st.success(f"🦠 {', '.join(name[:3])}")
 
     # highlight
     if "ใช้บ่อย" in result.columns:
